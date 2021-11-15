@@ -116,7 +116,7 @@ class LearnerPolicy(BasePolicy):
             action_logits[available_actions == 0] = torch.finfo(torch.float32).min
 
         dist = Categorical(logits=action_logits)
-        log_prob = dist.log_prob(action)
+        log_prob = dist.log_prob(action.to(**self.tensor_kwargs))
 
         return log_prob, dist.entropy().mean()
 
@@ -168,16 +168,16 @@ class LearnerPolicy(BasePolicy):
         value = self.get_values(batch.obs, to_numpy=False)
 
         # actor loss
-        ratio = torch.exp(log_prob - batch.log_prob)
-        advantage = batch.advantage
+        ratio = torch.exp(log_prob - batch.log_prob.to(**self.tensor_kwargs))
+        advantage = batch.advantage.to(**self.tensor_kwargs)
         surr1 = ratio * advantage
         surr2 = torch.clamp(ratio, 1.0 - self.clip_epsilon, 1.0 + self.clip_epsilon) * advantage
         policy_loss = -torch.min(surr1, surr2).mean()
         actor_loss = policy_loss - self.entropy_coef * dist_entropy
 
         # value loss
-        experience_value = batch.value
-        experience_return = batch.return_
+        experience_value = batch.value.to(**self.tensor_kwargs)
+        experience_return = batch.return_.to(**self.tensor_kwargs)
         value = value.reshape_as(batch.value)
         value_clipped = experience_value + torch.clamp(value - experience_value, -self.clip_epsilon, self.clip_epsilon)
         value_loss = F.mse_loss(value, experience_return)
@@ -189,7 +189,7 @@ class LearnerPolicy(BasePolicy):
         # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
         # and Schulman blog: http://joschu.net/blog/kl-approx.html
         with torch.no_grad():
-            log_ratio = log_prob - batch.log_prob
+            log_ratio = log_prob - batch.log_prob.to(**self.tensor_kwargs)
             approx_kl = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
             if self.target_kl is not None and approx_kl.item() > 1.5 * self.target_kl:
                 print(f"approx_kl = {approx_kl.item()}, skip this training!")

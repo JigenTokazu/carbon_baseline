@@ -4,6 +4,8 @@ import torch
 
 from algorithms.model import Model
 
+_device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 config = dict(
     carbon_game=dict(  # 游戏环境配置项
 
@@ -20,10 +22,10 @@ config = dict(
 
         save_interval=10,  # 多少个epoch保存下模型
         buffer_size=20000,
-        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+        device=_device,
         policy=dict(  # 训练策略参数
-            actor_model=Model(),
-            critic_model=Model(is_actor=False),
+            actor_model=Model().to(_device),
+            critic_model=Model(is_actor=False).to(_device),
             learning_rate=0.001,
             critic_learning_rate=0.001,
             training_times=15,
